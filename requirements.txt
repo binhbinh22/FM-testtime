@@ -1,0 +1,8 @@
+numpy
+xarray
+netCDF4
+# torch
+matplotlib
+chronos-forecasting
+transformers
+accelerate
