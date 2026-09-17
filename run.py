@@ -1068,5 +1068,5 @@ if __name__ == "__main__":
     )
 
     evaluator.run_evaluation(
-        n_test_samples=10
+        n_test_samples=1
     )

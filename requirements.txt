@@ -6,3 +6,5 @@ matplotlib
 chronos-forecasting
 transformers
 accelerate
+uni2ts 
+gluonts

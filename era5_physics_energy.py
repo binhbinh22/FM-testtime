@@ -255,17 +255,17 @@ if __name__ == "__main__":
     print("Shape của 3 kịch bản được chọn:", top3_scenarios.shape)  # (3, 24, 32, 64)
 
 
-def compute_real_grid_spacing(lat_array: np.ndarray, resolution_deg: float = 5.625) -> Dict[str, np.ndarray]:
-    """
-    Tính dx, dy thật (mét) cho lưới lat/lon toàn cầu.
-    dy: cố định theo vĩ độ (kinh tuyến cách đều nhau)
-    dx: thay đổi theo vĩ độ do kinh tuyến hội tụ về cực -> dx = R*cos(lat)*dlon
-    """
-    R_EARTH = 6_371_000.0  # bán kính Trái Đất (m)
-    dlat_rad = np.deg2rad(resolution_deg)
-    dlon_rad = np.deg2rad(resolution_deg)
+# def compute_real_grid_spacing(lat_array: np.ndarray, resolution_deg: float = 5.625) -> Dict[str, np.ndarray]:
+#     """
+#     Tính dx, dy thật (mét) cho lưới lat/lon toàn cầu.
+#     dy: cố định theo vĩ độ (kinh tuyến cách đều nhau)
+#     dx: thay đổi theo vĩ độ do kinh tuyến hội tụ về cực -> dx = R*cos(lat)*dlon
+#     """
+#     R_EARTH = 6_371_000.0  # bán kính Trái Đất (m)
+#     dlat_rad = np.deg2rad(resolution_deg)
+#     dlon_rad = np.deg2rad(resolution_deg)
 
-    dy = R_EARTH * dlat_rad  # hằng số, không đổi theo lat
-    dx = R_EARTH * np.cos(np.deg2rad(lat_array)) * dlon_rad  # array theo từng hàng vĩ độ
+#     dy = R_EARTH * dlat_rad  # hằng số, không đổi theo lat
+#     dx = R_EARTH * np.cos(np.deg2rad(lat_array)) * dlon_rad  # array theo từng hàng vĩ độ
 
-    return {"dx_per_lat_row": dx, "dy": dy}
+#     return {"dx_per_lat_row": dx, "dy": dy}
