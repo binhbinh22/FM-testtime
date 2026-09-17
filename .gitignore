@@ -2,5 +2,4 @@
 *.log
 *.err
 *.nc
-*.sh
 __pycache__/**/*
