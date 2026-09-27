@@ -6,32 +6,32 @@ import numpy as np
 
 from run import ERA5Config, ERA5DataLoader
 from chronos2_proposer import Chronos2Proposer
-from spectral_clustering import spectral_cluster_grid
-from spatial_cluster_search import SpatialClusterSearchConfig, SpatialClusterSearchEngine
+from multiscale_trend_seasonal_search import (
+    TrendSeasonalSearchConfig,
+    MultiscaleTrendSeasonalSearchEngine,
+)
 from trend_seasonal_eval_utils import build_shared_start_indices
 
 
 CSV_FIELDS = [
     "history_steps", "prediction_steps", "n_windows",
-    "n_clusters", "n_fine", "n_coarse", "k_fine",
-    "w1_dtw", "w2_fft", "w3_spatial",
+    "n_fine", "n_coarse", "k_fine", "k_coarse",
+    "w1_temporal", "w2_freq",
     "kernel_size_fine", "downsample_factor",
     "mse_norm_mean", "mse_norm_std",
 ]
 
 
-class SpatialClusterERA5Evaluator:
+class TrendSeasonalChronos2Evaluator:
     """
-    Wrapper CHAY XAC NHAN (khong dung de sweep tren TEST - chi dung tren
-    VAL) pipeline Spatial-Cluster BoN. Spectral Clustering (S, W) duoc
-    build 1 LAN duy nhat trong __init__.
-
-    QUAN TRONG: dung Chronos2Proposer (chronos2_proposer.py) - yeu cau
-    Chronos-2 THAT, multivariate (cross_learning=True), khong phai
-    Chronos T5. config.model_id PHAI la "amazon/chronos-2".
+    Baseline Trend+FFT+Physics CHAY VOI CHRONOS-2 THAT - engine
+    (MultiscaleTrendSeasonalSearchEngine) GIU NGUYEN, chi thay proposer
+    tu ChronosProposer (Chronos T5) sang Chronos2Proposer -> ca 2 nhanh
+    Fine/Coarse deu goi Chronos-2 that voi cross_learning=True tren toan
+    bo V node, dung nghia "spatial-temporal".
     """
 
-    def __init__(self, config: ERA5Config, search_config: SpatialClusterSearchConfig = None):
+    def __init__(self, config: ERA5Config, search_config: TrendSeasonalSearchConfig = None):
         if "chronos-2" not in config.model_id and "chronos2" not in config.model_id:
             raise ValueError(
                 f"config.model_id='{config.model_id}' khong phai Chronos-2 - "
@@ -40,18 +40,9 @@ class SpatialClusterERA5Evaluator:
         self.config = config
         self.loader = ERA5DataLoader(config)
         self.forecaster = Chronos2Proposer(model_id=config.model_id, batch_size=100)
-        self.search_config = search_config or SpatialClusterSearchConfig()
-
-        lat = self.loader.ds.latitude.values
-        lon = self.loader.ds.longitude.values
-        print(f"Spectral Clustering: V={lat.size * lon.size}, C={self.search_config.n_clusters}...")
-        self.S, self.labels, self.W = spectral_cluster_grid(
-            lat, lon, n_clusters=self.search_config.n_clusters, k_neighbors=self.search_config.k_neighbors
-        )
-        print("Cluster sizes:", self.S.sum(axis=0).astype(int).tolist())
-
-        self.engine = SpatialClusterSearchEngine(
-            proposer=self.forecaster, S=self.S, W=self.W, config=self.search_config
+        self.engine = MultiscaleTrendSeasonalSearchEngine(
+            proposer=self.forecaster,
+            config=search_config or TrendSeasonalSearchConfig(),
         )
 
     def run_test_set(self, n_windows: int = 10) -> dict:
@@ -77,7 +68,7 @@ class SpatialClusterERA5Evaluator:
         mse_norm_std = float(np.std(mse_norm_list))
 
         print("\n" + "=" * 70)
-        print(f"Spatial-Cluster BoN - {n_windows} cua so")
+        print(f"Trend+FFT+Physics (Chronos-2) - {n_windows} cua so")
         print(f"MSE (norm) : {mse_norm_mean:.6f} +/- {mse_norm_std:.6f}")
         print("=" * 70)
 
@@ -95,25 +86,23 @@ def append_csv_row(report_path: str, row: dict):
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Chay Spatial-Cluster BoN (Chronos-2) 1 lan, ghi 1 hang vao CSV.")
+    p = argparse.ArgumentParser(description="Chay Trend+FFT+Physics (Chronos-2) 1 lan, ghi 1 hang vao CSV.")
     p.add_argument("--history-steps", type=int, default=512)
     p.add_argument("--prediction-steps", type=int, default=64)
     p.add_argument("--n-windows", type=int, default=10)
-    p.add_argument("--data-path", type=str, default=None, help="Mac dinh: dung gia tri co san trong ERA5Config.")
+    p.add_argument("--data-path", type=str, default=None)
     p.add_argument("--model-id", type=str, default="amazon/chronos-2")
 
-    p.add_argument("--n-clusters", type=int, default=32, help="C - so cum Spectral Clustering.")
-    p.add_argument("--k-neighbors", type=int, default=8)
     p.add_argument("--n-fine", type=int, default=15, help="N_A - so candidate nhanh Fine.")
     p.add_argument("--n-coarse", type=int, default=5, help="N_C - so candidate nhanh Coarse.")
-    p.add_argument("--k-fine", type=int, default=5, help="K_A - top-K sau Physics Filter.")
+    p.add_argument("--k-fine", type=int, default=5)
+    p.add_argument("--k-coarse", type=int, default=5)
     p.add_argument("--w1", type=float, default=1.0, help="Trong so DTW (trend).")
     p.add_argument("--w2", type=float, default=1.0, help="Trong so FFT-L1 (seasonal).")
-    p.add_argument("--w3", type=float, default=1.0, help="Trong so spatial consistency.")
     p.add_argument("--kernel-size-fine", type=int, default=16)
     p.add_argument("--downsample-factor", type=int, default=4)
 
-    p.add_argument("--report-path", type=str, default="report_spatial_cluster.csv")
+    p.add_argument("--report-path", type=str, default="report_trend_seasonal_chronos2.csv")
     return p.parse_args()
 
 
@@ -129,34 +118,32 @@ if __name__ == "__main__":
         config_kwargs["data_path"] = args.data_path
     config = ERA5Config(**config_kwargs)
 
-    search_config = SpatialClusterSearchConfig(
-        n_clusters=args.n_clusters,
-        k_neighbors=args.k_neighbors,
+    search_config = TrendSeasonalSearchConfig(
         downsample_factor=args.downsample_factor,
-        n_scenarios_coarse=args.n_coarse,
         n_scenarios_fine=args.n_fine,
+        n_scenarios_coarse=args.n_coarse,
         k_physics_fine=args.k_fine,
-        kernel_size_fine=args.kernel_size_fine,
-        w1_dtw=args.w1,
-        w2_fft=args.w2,
-        w3_spatial=args.w3,
+        k_physics_coarse=args.k_coarse,
         k_final=1,
+        kernel_size_fine=args.kernel_size_fine,
+        w1_temporal=args.w1,
+        w2_freq=args.w2,
+        w3_harmonic=0.0,
     )
 
-    evaluator = SpatialClusterERA5Evaluator(config, search_config)
+    evaluator = TrendSeasonalChronos2Evaluator(config, search_config)
     metrics = evaluator.run_test_set(n_windows=args.n_windows)
 
     row = {
         "history_steps": args.history_steps,
         "prediction_steps": args.prediction_steps,
         "n_windows": args.n_windows,
-        "n_clusters": args.n_clusters,
         "n_fine": args.n_fine,
         "n_coarse": args.n_coarse,
         "k_fine": args.k_fine,
-        "w1_dtw": args.w1,
-        "w2_fft": args.w2,
-        "w3_spatial": args.w3,
+        "k_coarse": args.k_coarse,
+        "w1_temporal": args.w1,
+        "w2_freq": args.w2,
         "kernel_size_fine": args.kernel_size_fine,
         "downsample_factor": args.downsample_factor,
         "mse_norm_mean": metrics["mse_norm_mean"],
