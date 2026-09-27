@@ -1,6 +1,6 @@
 import numpy as np
 
-from era5_multiscale import downsample_avgpool
+from down import downsample_avgpool
 
 
 class ERA5FrequencyEnergyScorer:
@@ -18,7 +18,7 @@ class ERA5FrequencyEnergyScorer:
     ứng cùng một tần số vật lý giữa 2 phổ.
 
     CÁCH ĐÚNG: downsample Y_fine về ĐÚNG scale của Y_coarse TRƯỚC KHI FFT,
-    dùng CHUNG hàm downsample_avgpool (era5_multiscale.py, cùng factor và
+    dùng CHUNG hàm downsample_avgpool (down.py, cùng factor và
     cùng quy ước cắt biên đã dùng để tạo X_coarse từ lịch sử X):
 
         Y_fine_ds = downsample_avgpool(Y_fine, factor)   # cùng độ dài Y_coarse

@@ -19,3 +19,4 @@ cd /home/user18/binhnkt
 # python moirai_scaleA2.py
 python vizua_A_trend_seasonal.py
 # python vizuaAfrequency.py
+# python spatial_cluster_runner.py
