@@ -1,5 +1,4 @@
 *.png
 *.log
 *.err
-*.nc
 __pycache__/**/*
