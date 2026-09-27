@@ -1,10 +1,13 @@
 numpy
 xarray
 netCDF4
-# torch
+torch
 matplotlib
 chronos-forecasting
 transformers
 accelerate
-uni2ts 
+uni2ts
 gluonts
+gcsfs
+scikit-learn
+scipy
