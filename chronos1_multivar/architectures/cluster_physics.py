@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from common import (  # noqa: E402
     build_config, get_window_with_wind_history, aggregate_window_metrics, append_csv_row,
     build_shared_start_indices, N_FINE_DEFAULT, N_COARSE_DEFAULT,
+    compute_latitude_weights, compute_climatology,
 )
 from engines.spatial_cluster_multivar import SpatialClusterMultivarEngine, SpatialClusterMultivarConfig  # noqa: E402
 
@@ -17,6 +18,8 @@ ARCHITECTURE_NAME = "cluster_physics"
 W1_DTW = 1.0
 W2_FFT = 1.0
 W3_SPATIAL = 0.0  # phan khong gian TAT - chi khac Trend+Seasonal+Physics o cach xay nhanh Coarse (cum thay vi downsample)
+
+DEFAULT_CLIMATOLOGY_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "era5_val_2015_2016.nc")
 
 
 class ClusterPhysicsEvaluator:
@@ -28,7 +31,7 @@ class ClusterPhysicsEvaluator:
     """
 
     def __init__(self, config, n_clusters=32, k_neighbors=24, n_fine=N_FINE_DEFAULT,
-                 n_coarse=N_COARSE_DEFAULT, k_fine=5):
+                 n_coarse=N_COARSE_DEFAULT, k_fine=5, climatology_path: str = DEFAULT_CLIMATOLOGY_PATH):
         self.config = config
         self.loader = ERA5DataLoader(config)
         self.forecaster = ChronosProposer(model_id=config.model_id)
@@ -44,6 +47,8 @@ class ClusterPhysicsEvaluator:
             w1_dtw=W1_DTW, w2_fft=W2_FFT, w3_spatial=W3_SPATIAL,
         )
         self.engine = SpatialClusterMultivarEngine(self.forecaster, self.S, self.W, engine_config)
+        self.lat_weight = compute_latitude_weights(lat)
+        self.climatology = compute_climatology(climatology_path, config)
 
     def run_test_set(self, n_windows: int = 10) -> dict:
         start_indices = build_shared_start_indices(
@@ -55,7 +60,10 @@ class ClusterPhysicsEvaluator:
         window_metrics = []
         for start_idx in start_indices:
             data = get_window_with_wind_history(self.loader, self.config, int(start_idx))
-            m = self.engine.run(data, self.config.prediction_steps, self.config.interval_hours, lat, lon)
+            m = self.engine.run(
+                data, self.config.prediction_steps, self.config.interval_hours, lat, lon,
+                lat_weight=self.lat_weight, climatology=self.climatology,
+            )
             window_metrics.append(m)
 
         metrics = aggregate_window_metrics(window_metrics)
@@ -79,6 +87,8 @@ def parse_args():
     p.add_argument("--n-fine", type=int, default=N_FINE_DEFAULT)
     p.add_argument("--n-coarse", type=int, default=N_COARSE_DEFAULT)
     p.add_argument("--k-fine", type=int, default=5)
+    p.add_argument("--climatology-path", type=str, default=DEFAULT_CLIMATOLOGY_PATH,
+                    help="Du lieu dung tinh climatology cho ACC (mac dinh: tap val, tach biet voi data-path dang danh gia).")
     p.add_argument("--report-path", type=str, default=os.path.join(
         os.path.dirname(__file__), "..", "reports", f"results_{ARCHITECTURE_NAME}.csv"))
     return p.parse_args()
@@ -91,6 +101,7 @@ if __name__ == "__main__":
     evaluator = ClusterPhysicsEvaluator(
         config, n_clusters=args.n_clusters, k_neighbors=args.k_neighbors,
         n_fine=args.n_fine, n_coarse=args.n_coarse, k_fine=args.k_fine,
+        climatology_path=args.climatology_path,
     )
     metrics = evaluator.run_test_set(n_windows=args.n_windows)
 

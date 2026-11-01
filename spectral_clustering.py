@@ -18,6 +18,22 @@ def spectral_cluster_grid(
     Buoc 2.1 cua kien truc: chay Spectral Clustering 1 LAN tren cau truc
     do thi (lat, lon), sinh ma tran gan S (V x C).
 
+    CAN CU (khong tu bia):
+    - Thuat toan spectral clustering (eigenvector cua Laplacian do thi ->
+      KMeans tren embedding, tuong duong sklearn SpectralClustering
+      assign_labels="kmeans"): Ng, A. Y., Jordan, M. I., & Weiss, Y.
+      (2002). "On Spectral Clustering: Analysis and an Algorithm."
+      NeurIPS 14.
+    - Do thi kNN + Gaussian similarity (1 sigma dung chung): xem trich
+      dan chi tiet trong era5_graph.py (Von Luxburg 2007).
+    - CHUA co can cu rieng cho viec DUNG spectral clustering lam buoc
+      chia vung khi hau trong 1 pipeline BoN test-time search cho du bao
+      thoi tiet - day la DE XUAT CUA DO AN, khong sao chep tu 1 paper cu
+      the nao ap dung dung bai toan nay. Da ghi nhan diem nay tu truoc
+      trong ARCHITECTURE_1_MCTS_SPATIOTEMPORAL.md muc 2.3 (danh dau
+      "[De xuat, can xac nhan lai y giao su]") - can noi ro voi giao su
+      day la phan tu thiet ke, khong phai ket qua da co paper xac nhan.
+
     S[i, c] = 1 neu node i thuoc cum c, nguoc lai 0 (one-hot cung, KHONG
     phai soft assignment - dung dung nghia "ma tran gan S" trong bao cao).
 

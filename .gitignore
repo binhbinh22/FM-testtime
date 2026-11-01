@@ -1,4 +1,4 @@
 *.png
 *.log
 *.err
-__pycache__/**/*
+**/__pycache__/

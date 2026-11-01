@@ -51,15 +51,31 @@ def build_knn_graph(
 ) -> np.ndarray:
     """
     Do thi k-nearest-neighbor tren khoang cach great-circle, trong so
-    Gaussian kernel: w_ij = exp(-d_ij^2 / (2*sigma^2)) neu j la 1 trong k
-    lang gieng gan nhat cua i. Symmetrize bang max(W, W^T) (ke neu 1
-    trong 2 chieu coi la kNN cua nhau - quy uoc chuan cho kNN graph
-    khong huong).
+    Gaussian similarity voi 1 bandwidth sigma DUNG CHUNG cho toan luoi.
 
-    sigma mac dinh = trung vi khoang cach toi lang gieng thu k (self-
-    tuning kieu Zelnik-Manor & Perona 2004) neu khong truyen vao, de
-    trong so tu dong thich nghi voi mat do luoi (khong dong deu o cac vi
-    vi do cua luoi equiangular).
+    CAN CU (khong tu bia): day la cach dung do thi + trong so TIEU CHUAN,
+    don gian nhat cho Spectral Clustering - Von Luxburg, U. (2007). "A
+    tutorial on spectral clustering." Statistics and Computing, 17(4),
+    395-416 (muc 2 "Similarity graphs", cong thuc Gaussian similarity
+    function w_ij = exp(-d(i,j)^2 / (2*sigma^2)), va muc 2.1 ve kNN graph
+    + symmetrize).
+
+    sigma mac dinh = trung vi khoang cach toi lang gieng thu k, chi la 1
+    heuristic thuc te thuong dung de chon sigma tu dong (khong phai 1
+    phuong phap co ten/citation rieng) - co the truyen sigma_km de tu
+    chon tay.
+
+    QUYET DINH THIET KE (2026-xx): CO 1 phien ban khac dung bandwidth
+    RIENG TUNG DIEM (Zelnik-Manor & Perona 2004) da thu va bi loai bo -
+    khong don gian hon, va thuc nghiem tren luoi ERA5 that (V=2048) cho
+    thay KHONG cai thien duoc van de phan manh cum o vung cuc (kich thuoc
+    cum gan nhu khong doi). Giu ban don gian nay (1 sigma toan cuc) lam
+    baseline, chi quay lai huong sigma rieng tung diem neu co ly do cu
+    the sau khi da thu cac huong don gian hon (vd tang k_neighbors).
+
+    Symmetrize bang max(W, W^T) (ke neu 1 trong 2 chieu coi la kNN cua
+    nhau - quy uoc chuan cho kNN graph khong huong, Von Luxburg 2007 muc
+    2.1).
 
     Return: W (V, V), khong am, duong cheo = 0.
     """
@@ -82,6 +98,8 @@ def build_knn_graph(
     W = np.zeros((V, V), dtype=np.float64)
     rows = np.repeat(np.arange(V), k)
     cols = knn_idx.reshape(-1)
+    # Von Luxburg (2007) Eq. trong muc 2: Gaussian similarity voi 1 sigma
+    # dung chung (2*sigma^2 o mau so), khong phai sigma rieng tung diem.
     w = np.exp(-(dist[rows, cols] ** 2) / (2.0 * sigma_km**2))
     W[rows, cols] = w
     W = np.maximum(W, W.T)

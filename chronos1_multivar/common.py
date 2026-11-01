@@ -3,6 +3,7 @@ import os
 import sys
 
 import numpy as np
+import xarray as xr
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -36,6 +37,10 @@ RESULTS_CSV_FIELDS = [
     "n_fine", "n_coarse",
     "t2m_mse_norm_mean", "u10_mse_norm_mean", "v10_mse_norm_mean",
     "multivar_mse_norm_mean", "multivar_mse_norm_std",
+    "t2m_rmse_denorm_mean", "u10_rmse_denorm_mean", "v10_rmse_denorm_mean",
+    "rmse_denorm_mean", "rmse_denorm_std",
+    "t2m_acc_denorm_mean", "u10_acc_denorm_mean", "v10_acc_denorm_mean",
+    "acc_denorm_mean", "acc_denorm_std",
 ]
 
 
@@ -92,13 +97,65 @@ def _mse_norm_for(forecast_norm_best: np.ndarray, gt_denorm: np.ndarray, mean_fl
     return float(np.mean((forecast_norm_best - gt_norm) ** 2))
 
 
-def compute_multivar_mse(candidates: dict, best_idx: int, data: dict, lat: int, lon: int) -> dict:
+def compute_latitude_weights(lat_deg: np.ndarray) -> np.ndarray:
+    """
+    alpha(h) = cos(h) / mean(cos(h)) - dung quy uoc cua ClimODE (Verma et al.,
+    2024, ICLR; cong thuc 13/15) de bu tru dien tich o luoi co lai gan cuc.
+    """
+    w = np.cos(np.deg2rad(lat_deg))
+    return w / w.mean()
+
+
+def compute_climatology(climatology_path: str, config: ERA5Config) -> dict:
+    """
+    Climatology = trung binh theo thoi gian (KHONG phan biet ngay/thang
+    trong nam - dung dung dinh nghia "empirical mean" cua ClimODE) tinh TU
+    TAP VAL (tach biet voi test, khong ro ri thong tin) - repo nay khong co
+    10 nam train rieng nhu paper goc nen dung val lam nguon climatology
+    chung cho moi lan danh gia (ca khi dang chay tren val lan test).
+    """
+    ds = xr.open_dataset(climatology_path).transpose("time", "latitude", "longitude")
+    return {
+        "t2m": ds[config.target_var].mean(dim="time").values,
+        "u10": ds[config.u_wind_var].mean(dim="time").values,
+        "v10": ds[config.v_wind_var].mean(dim="time").values,
+    }
+
+
+def _rmse_acc_denorm_for(pred_denorm: np.ndarray, gt_denorm: np.ndarray, climatology_spatial: np.ndarray,
+                          lat_weight_col: np.ndarray) -> tuple:
+    """
+    pred_denorm, gt_denorm: (prediction_steps, lat, lon), gia tri vat ly
+    that (K hoac m/s). Cong thuc dung dinh nghia ClimODE (cong thuc 13/15):
+    RMSE = (1/T) sum_t sqrt(mean_hw[alpha(h)*(y-u)^2])
+    ACC  = sum_thw[alpha(h)*y~*u~] / sqrt(sum_thw[alpha(h)*y~^2] * sum_thw[alpha(h)*u~^2])
+    """
+    diff_sq = lat_weight_col[np.newaxis] * (gt_denorm - pred_denorm) ** 2
+    rmse = float(np.mean([np.sqrt(np.mean(diff_sq[t])) for t in range(diff_sq.shape[0])]))
+
+    y_anom = gt_denorm - climatology_spatial[np.newaxis]
+    u_anom = pred_denorm - climatology_spatial[np.newaxis]
+    w = lat_weight_col[np.newaxis]
+    numerator = np.sum(w * y_anom * u_anom)
+    denominator = np.sqrt(np.sum(w * y_anom ** 2) * np.sum(w * u_anom ** 2))
+    acc = float(numerator / denominator) if denominator > 0 else float("nan")
+
+    return rmse, acc
+
+
+def compute_multivar_mse(candidates: dict, best_idx: int, data: dict, lat: int, lon: int,
+                          lat_weight: np.ndarray = None, climatology: dict = None) -> dict:
     """
     Chuan hoa (z-score) RIENG tung bien (moi bien co mean/std rieng tinh tu
     lich su cua chinh no), roi lay trung bing cong KHONG trong so cua 3 MSE
     da chuan hoa lam diem tong hop - dung quy uoc WeatherBench/GraphCast khi
     khong co ly do rieng de uu tien bien nao hon. KHONG duoc cong MSE tho
     (K vs m/s khac don vi).
+
+    Neu lat_weight + climatology duoc truyen vao, tinh THEM RMSE va ACC tren
+    gia tri denorm (vat ly that), co trong so vi do, theo dung dinh nghia
+    ClimODE (Verma et al., 2024) - doc lap voi MSE norm o tren, khong thay
+    the no.
     """
     t2m_denorm, t2m_norm, t2m_mean, t2m_std = candidates["t2m"]
     u10_denorm, u10_norm, u10_mean, u10_std = candidates["u10"]
@@ -109,12 +166,32 @@ def compute_multivar_mse(candidates: dict, best_idx: int, data: dict, lat: int, 
     v10_mse = _mse_norm_for(v10_norm[best_idx], data["gt_v10"], v10_mean, v10_std, lat, lon)
     multivar_mse = (t2m_mse + u10_mse + v10_mse) / 3.0
 
-    return {
+    result = {
         "t2m_mse_norm": t2m_mse,
         "u10_mse_norm": u10_mse,
         "v10_mse_norm": v10_mse,
         "multivar_mse_norm": multivar_mse,
     }
+
+    if lat_weight is not None and climatology is not None:
+        lat_weight_col = lat_weight.reshape(-1, 1)
+        denorm_by_var = {"t2m": t2m_denorm[best_idx], "u10": u10_denorm[best_idx], "v10": v10_denorm[best_idx]}
+        gt_by_var = {"t2m": data["gt_t2m"], "u10": data["gt_u10"], "v10": data["gt_v10"]}
+
+        rmse_vals, acc_vals = [], []
+        for var in ("t2m", "u10", "v10"):
+            rmse, acc = _rmse_acc_denorm_for(
+                denorm_by_var[var], gt_by_var[var], climatology[var], lat_weight_col,
+            )
+            result[f"{var}_rmse_denorm"] = rmse
+            result[f"{var}_acc_denorm"] = acc
+            rmse_vals.append(rmse)
+            acc_vals.append(acc)
+
+        result["rmse_denorm_mean"] = float(np.mean(rmse_vals))
+        result["acc_denorm_mean"] = float(np.mean(acc_vals))
+
+    return result
 
 
 def aggregate_window_metrics(window_metrics: list) -> dict:
@@ -122,14 +199,33 @@ def aggregate_window_metrics(window_metrics: list) -> dict:
     def _mean(key):
         return float(np.mean([m[key] for m in window_metrics]))
 
+    def _std(key):
+        return float(np.std([m[key] for m in window_metrics]))
+
     multivar_list = [m["multivar_mse_norm"] for m in window_metrics]
-    return {
+    result = {
         "t2m_mse_norm_mean": _mean("t2m_mse_norm"),
         "u10_mse_norm_mean": _mean("u10_mse_norm"),
         "v10_mse_norm_mean": _mean("v10_mse_norm"),
         "multivar_mse_norm_mean": float(np.mean(multivar_list)),
         "multivar_mse_norm_std": float(np.std(multivar_list)),
     }
+
+    if "rmse_denorm_mean" in window_metrics[0]:
+        result.update({
+            "t2m_rmse_denorm_mean": _mean("t2m_rmse_denorm"),
+            "u10_rmse_denorm_mean": _mean("u10_rmse_denorm"),
+            "v10_rmse_denorm_mean": _mean("v10_rmse_denorm"),
+            "rmse_denorm_mean": _mean("rmse_denorm_mean"),
+            "rmse_denorm_std": _std("rmse_denorm_mean"),
+            "t2m_acc_denorm_mean": _mean("t2m_acc_denorm"),
+            "u10_acc_denorm_mean": _mean("u10_acc_denorm"),
+            "v10_acc_denorm_mean": _mean("v10_acc_denorm"),
+            "acc_denorm_mean": _mean("acc_denorm_mean"),
+            "acc_denorm_std": _std("acc_denorm_mean"),
+        })
+
+    return result
 
 
 def append_csv_row(report_path: str, row: dict, fieldnames=RESULTS_CSV_FIELDS):

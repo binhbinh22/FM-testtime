@@ -103,7 +103,7 @@ def parse_args():
     p.add_argument("--model-id", type=str, default="amazon/chronos-2")
 
     p.add_argument("--n-clusters", type=int, default=32, help="C - so cum Spectral Clustering.")
-    p.add_argument("--k-neighbors", type=int, default=8)
+    p.add_argument("--k-neighbors", type=int, default=24)  # xem ghi chu trong SpatialClusterSearchConfig
     p.add_argument("--n-fine", type=int, default=15, help="N_A - so candidate nhanh Fine.")
     p.add_argument("--n-coarse", type=int, default=5, help="N_C - so candidate nhanh Coarse.")
     p.add_argument("--k-fine", type=int, default=5, help="K_A - top-K sau Physics Filter.")

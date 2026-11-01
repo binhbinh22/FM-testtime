@@ -49,7 +49,15 @@ class SpatialClusterSearchConfig:
 
     # --- Spectral Clustering (muc 2.1) ---
     n_clusters: int = 32  # C - xem trao doi truoc: patch ~8x8, can bang chi tiet vs compute
-    k_neighbors: int = 8
+    # k_neighbors=8 (gia tri cu) khien do thi RIENG RAC thanh 5 thanh
+    # phan lien thong tren luoi ERA5 that (V=2048) - da kiem chung bang
+    # scipy.sparse.csgraph.connected_components. k=24 la gia tri NHO
+    # NHAT lam do thi lien thong hoan toan (1 thanh phan) tren luoi nay -
+    # cung sua duoc van de phan manh cum o cuc da phat hien truoc do (0
+    # cum <40 node, so voi 12 cum khi k=8). Gia tri nay RIENG cho luoi
+    # 32x64 (V=2048) - neu doi kich thuoc luoi, can chay lai kiem tra
+    # connected_components de chon lai k_neighbors.
+    k_neighbors: int = 24
 
     # --- Nhanh Coarse (muc 2.2) ---
     downsample_factor: int = 4
