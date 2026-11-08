@@ -2,3 +2,8 @@
 *.log
 *.err
 **/__pycache__/
+
+# Large data files (keep local, never push to GitHub — exceeds 100MB limit)
+*.npz
+*.nc
+datasets/**/processed/

@@ -1,0 +1,11 @@
+
+{
+  "mcpServers": {
+    "overleaf": {
+      "command": "node",
+      "args": [
+        "/Users/binh/Desktop/FM_lab/FM-testtime/overleaf-git-mcp/overleaf-mcp-server.js"
+      ]
+    }
+  }
+}

@@ -1,0 +1,221 @@
+%% ============================================================
+%% Tất cả entry dưới đây đã được kiểm tra qua WebSearch (arXiv/ICLR/ICML
+%% abstract pages), KHÔNG còn chỗ nào đoán tên tác giả từ chữ cái đầu.
+%% 8 entry đầu đúng với danh mục "Tài liệu tham khảo" trong đề cương.
+%% ============================================================
+
+@article{snell2024scaling,
+  title={Scaling LLM Test-Time Compute Optimally Can Be More Effective Than Scaling Model Parameters},
+  author={Snell, Charlie and Lee, Jaehoon and Xu, Kelvin and Kumar, Aviral},
+  journal={arXiv preprint arXiv:2408.03314},
+  year={2024}
+}
+
+%% ============================================================
+%% 3 entry dưới đây thêm sau khi survey lại literature hiện tại (không
+%% có trong đề cương) -- phát hiện qua WebSearch khi rà soát Related
+%% Work, đã xác minh tác giả/venue/arXiv ID qua trang abstract gốc.
+%% ============================================================
+
+@article{cobbe2021verifiers,
+  title={Training Verifiers to Solve Math Word Problems},
+  author={Cobbe, Karl and Kosaraju, Vineet and Bavarian, Mohammad and Hilton, Jacob and Nakano, Reiichiro and Hesse, Christopher and Schulman, John},
+  journal={arXiv preprint arXiv:2110.14168},
+  year={2021},
+  note={Paper gốc đề xuất Best-of-N + verifier (GSM8K) -- nền tảng trực tiếp cho hướng TTC mà bài này kế thừa.}
+}
+
+@inproceedings{le2026scaler,
+  title={Efficient Test-Time Scaling for LLM-based Time Series Forecasting},
+  author={Le, Xuan-May and Tran, Minh-Tuan and Luo, Ling and Aickelin, Uwe and Phung, Dinh and Le, Trung},
+  booktitle={Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)},
+  year={2026},
+  note={arXiv:2608.08675. SCALER -- coarse-to-fine test-time scaling cho LLM-based forecaster, CHUA co chieu khong gian/graph; can thao luan ro trong Related Work de phan biet voi dong gop cua bai nay.}
+}
+
+@inproceedings{xu2024weathergft,
+  title={Generalizing Weather Forecast to Fine-Grained Temporal Scales via Physics-{AI} Hybrid Modeling},
+  author={Xu, Wanghan and Ling, Fenghua and Zhang, Wenlong and Han, Tao and Chen, Hao and Ouyang, Wanli and Bai, Lei},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
+  year={2024},
+  note={WeatherGFT: interleaves Transformer blocks with a PDE solver kernel.}
+}
+
+@inproceedings{zheng2025passat,
+  title={Physics-Assisted and Topology-Informed Deep Learning for Weather Prediction},
+  author={Zheng, Jiaqi and Ling, Qing and Feng, Yerong},
+  booktitle={Proceedings of the 34th International Joint Conference on Artificial Intelligence (IJCAI)},
+  year={2025},
+  note={PASSAT. arXiv:2505.04918. Spherical graph neural network solving governing equations on the spherical manifold.}
+}
+
+@article{wang2026tta,
+  title={Towards Principled Test-Time Adaptation for Time Series Forecasting},
+  author={Wang, Haochun and Xu, Ruichen and Kementzidis, Georgios and Cho, Karen and Ramirez Villarreal, Sebastian and Deng, Yuefan},
+  journal={arXiv preprint arXiv:2605.17250},
+  year={2026},
+  note={Test-time ADAPTATION (gradient-based weight update at test time) -- khac voi test-time COMPUTING (backbone dong bang, chi search) ma bai nay dung; trich de phan biet ro 2 huong, tranh nham lan thuat ngu.}
+}
+
+@inproceedings{huang2025bestofn,
+  title={Is Best-of-{N} the Best of Them? Coverage, Scaling, and Optimality in Inference-Time Alignment},
+  author={Huang, Audrey and Block, Adam and Liu, Qinghua and Jiang, Nan and Krishnamurthy, Akshay and Foster, Dylan J.},
+  booktitle={Proceedings of the 42nd International Conference on Machine Learning (ICML)},
+  year={2025},
+  note={Phan tich ly thuyet ve gioi han/reward-hacking cua Best-of-N -- lien quan truc tiep den luu y reward hacking da neu o Section Analysis (A1).}
+}
+
+@article{ji2025survey,
+  title={Test-Time Computing: From System-1 Thinking to System-2 Thinking},
+  author={Ji, Yixin and Li, Juntao and Xiang, Yang and Ye, Hai and Wu, Kaixin and Yao, Kai and Xu, Jia and Mo, Linjian and Zhang, Min},
+  journal={arXiv preprint arXiv:2501.02497},
+  year={2025},
+  note={Survey tong quan ve test-time compute cho LLM.}
+}
+
+@article{lam2023graphcast,
+  title={Learning Skillful Medium-Range Global Weather Forecasting},
+  author={Lam, Remi and Sanchez-Gonzalez, Alvaro and Willson, Matthew and Wirnsberger, Peter and Fortunato, Meire and Alet, Ferran and Ravuri, Suman and Ewalds, Timo and Eaton-Rosen, Zach and Hu, Weihua and Merose, Alexander and Hoyer, Stephan and Holland, George and Vinyals, Oriol and Stott, Jacklynn and Pritzel, Alexander and Mohamed, Shakir and Battaglia, Peter},
+  journal={Science},
+  volume={382},
+  number={6677},
+  pages={1416--1421},
+  year={2023},
+  note={GraphCast. arXiv preprint: arXiv:2212.12794}
+}
+
+@article{ansari2024chronos,
+  title={Chronos: Learning the Language of Time Series},
+  author={Ansari, Abdul Fatir and Stella, Lorenzo and others},
+  journal={Transactions on Machine Learning Research},
+  year={2024},
+  note={arXiv:2403.07815. Danh sách đầy đủ >10 tác giả (nhóm Amazon Science) -- xem arxiv.org/abs/2403.07815 nếu cần liệt kê hết.}
+}
+
+@article{ansari2025chronos2,
+  title={Chronos-2: From Univariate to Universal Forecasting},
+  author={Ansari, Abdul Fatir and others},
+  journal={arXiv preprint arXiv:2510.15821},
+  year={2025},
+  note={Danh sách đầy đủ tác giả (nhóm Amazon Web Services) -- xem arxiv.org/abs/2510.15821 nếu cần liệt kê hết.}
+}
+
+@inproceedings{liu2025videot1,
+  title={Video-T1: Test-Time Scaling for Video Generation},
+  author={Liu, Fangfu and Wang, Hanyang and Cai, Yimo and Zhang, Kaiyan and Zhan, Xiaohang and Duan, Yueqi},
+  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages={18671--18681},
+  year={2025},
+  note={arXiv:2503.18942}
+}
+
+@inproceedings{park2025pint,
+  title={PINT: Physics-Informed Neural Time Series Models with Applications to Long-Term Inference on WeatherBench 2m-Temperature Data},
+  author={Park, Keonvin and Kim, Jisu and Seo, Jaemin},
+  booktitle={ICLR 2025 Workshop on World Models: Understanding, Modelling and Scaling},
+  year={2025},
+  note={arXiv:2502.04018}
+}
+
+@inproceedings{verma2024climode,
+  title={ClimODE: Climate and Weather Forecasting with Physics-Informed Neural ODEs},
+  author={Verma, Yogesh and Heinonen, Markus and Garg, Vikas},
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2024},
+  note={arXiv:2404.10024}
+}
+
+@inproceedings{cao2026pinfdit,
+  title={PINFDiT: Energy-Based Physics-Informed Diffusion Transformers for General-Purpose Time Series Tasks},
+  author={Cao, Defu and Ye, Wen and Zhang, Yizhou and Griesemer, Sam and Liu, Yan},
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2026}
+}
+
+@article{le2026deft,
+  title={Expert-Guided Forecast Editing for Time-Series Foundation Models},
+  author={Le, Hung and Nguyen, Minh Hoang and Nguyen, Manh and Nguyen, Huu Hiep and Do, Dai},
+  journal={arXiv preprint arXiv:2607.19659},
+  year={2026}
+}
+
+%% ============================================================
+%% 4 entry dưới đây KHÔNG có trong đề cương gốc (thêm theo yêu cầu
+%% baseline riêng) -- nay đã kiểm tra lại qua WebSearch, arXiv ID và
+%% tác giả đầy đủ lấy trực tiếp từ trang abstract arXiv.
+%% ============================================================
+
+@inproceedings{das2024timesfm,
+  title={A Decoder-Only Foundation Model for Time-Series Forecasting},
+  author={Das, Abhimanyu and Kong, Weihao and Sen, Rajat and Zhou, Yichen},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2024},
+  note={arXiv:2310.10688}
+}
+
+@inproceedings{woo2024moirai,
+  title={Unified Training of Universal Time Series Forecasting Transformers},
+  author={Woo, Gerald and Liu, Chenghao and Kumar, Akshat and Xiong, Caiming and Savarese, Silvio and Sahoo, Doyen},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2024},
+  note={arXiv:2402.02592}
+}
+
+@inproceedings{nguyen2023climax,
+  title={ClimaX: A Foundation Model for Weather and Climate},
+  author={Nguyen, Tung and Brandstetter, Johannes and Kapoor, Ashish and Gupta, Jayesh K. and Grover, Aditya},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2023},
+  note={arXiv:2301.10343}
+}
+
+@article{price2025gencast,
+  title={Probabilistic Weather Forecasting with Machine Learning},
+  author={Price, Ilan and Sanchez-Gonzalez, Alvaro and Alet, Ferran and Andersson, Tom R. and El-Kadi, Andrew and Masters, Dominic and Ewalds, Timo and Stott, Jacklynn and Mohamed, Shakir and Battaglia, Peter and Lam, Remi and Willson, Matthew},
+  journal={Nature},
+  year={2025},
+  note={GenCast. Preprint: arXiv:2312.15796 (2023), titled ``GenCast: Diffusion-based ensemble forecasting for medium-range weather''}
+}
+
+@inproceedings{ng2002spectral,
+  title={On Spectral Clustering: Analysis and an Algorithm},
+  author={Ng, Andrew Y. and Jordan, Michael I. and Weiss, Yair},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
+  volume={14},
+  pages={849--856},
+  year={2002}
+}
+
+@article{vonluxburg2007tutorial,
+  title={A Tutorial on Spectral Clustering},
+  author={von Luxburg, Ulrike},
+  journal={Statistics and Computing},
+  volume={17},
+  number={4},
+  pages={395--416},
+  year={2007},
+  note={arXiv:0711.0189}
+}
+
+@inproceedings{wu2021autoformer,
+  title={Autoformer: Decomposition Transformers with Auto-Correlation for Long-Term Series Forecasting},
+  author={Wu, Haixu and Xu, Jiehui and Wang, Jianmin and Long, Mingsheng},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
+  year={2021},
+  note={arXiv:2106.13008}
+}
+
+@inproceedings{wang2024timemixer,
+  title={TimeMixer: Decomposable Multiscale Mixing for Time Series Forecasting},
+  author={Wang, Shiyu and Wu, Haixu and Shi, Xiaoming and Hu, Tengge and Luo, Huakun and Ma, Lintao and Zhang, James Y. and Zhou, Jun},
+  booktitle={International Conference on Learning Representations (ICLR)},
+  year={2024}
+}
+
+@inproceedings{chen2025stttc,
+  title={Learning with Calibration: Exploring Test-Time Computing of Spatio-Temporal Forecasting},
+  author={Chen, Wei and Liang, Yuxuan},
+  booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
+  year={2025},
+  note={Spotlight. Preprint: arXiv:2506.00635}
+}

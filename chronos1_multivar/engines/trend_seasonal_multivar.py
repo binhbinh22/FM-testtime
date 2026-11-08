@@ -68,7 +68,8 @@ class TrendSeasonalMultivarEngine:
             seasonals.append(seasonal)
         return trends, seasonals
 
-    def run(self, data: Dict, prediction_steps: int, interval_hours: float, lat: int, lon: int) -> Dict:
+    def run(self, data: Dict, prediction_steps: int, interval_hours: float, lat: int, lon: int,
+            lat_weight: Optional[np.ndarray] = None, climatology: Optional[Dict] = None) -> Dict:
         cfg = self.config
         factor = cfg.downsample_factor
 
@@ -127,7 +128,10 @@ class TrendSeasonalMultivarEngine:
         best_local = int(np.argmin(E_fine))
         best_idx_original = int(fine_idx[best_local])  # index trong N_fine ban dau (chua loc)
 
-        metrics = compute_multivar_mse(candidates, best_idx_original, data, lat, lon)
+        metrics = compute_multivar_mse(
+            candidates, best_idx_original, data, lat, lon,
+            lat_weight=lat_weight, climatology=climatology,
+        )
         metrics["final_candidate_t2m"] = t2m_denorm[best_idx_original]
         metrics["E_fine"] = E_fine
         return metrics
