@@ -36,7 +36,7 @@ PREDICTION_STEPS = 24
 N_SAMPLES = 20
 N_WINDOWS = 20
 MODEL_ID = "amazon/chronos-t5-base"
-BATCH_SIZE = 512
+BATCH_SIZE = 64   # 64 x 20 samples = 1280 chuoi/lan (512 -> OOM tren T4 14.5GB)
 SEED = 0
 OUT_JSON = "/kaggle/working/era5_hydro_corr_results.json"
 
