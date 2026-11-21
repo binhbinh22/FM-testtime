@@ -26,18 +26,22 @@ warnings.filterwarnings("ignore")
 """
 ABLATION KIEN TRUC (cumulative) cho ERA5 + TimesFM-3.0, physics = HYDROSTATIC.
 =============================================================================
-5 kien truc cong don (moi buoc them 1 thanh phan verifier), chon JOINT-1-INDEX
-tren pool N candidate dung chung qua 3 bien (z500, z1000, t850):
+Kien truc DUNG HINH PAPER: Physics la PRE-FILTER (giu top-K candidate thoa vat
+ly nhat), roi COMPOSITE VERIFIER (Trend + Frequency + Spatial) cham diem energy
+tren so candidate con lai -> chon lowest energy. Physics KHONG nam trong energy.
+
+5 kien truc cong don (joint-1-index tren pool N dung chung qua z500/z1000/t850):
 
     A1 Greedy (no TTC)        : point forecast TimesFM-3.0 (khong chon)
-    A2 Best-of-N + physics    : chon theo hydrostatic residual
-    A3 + trend (multiscale)   : + DTW(trend) voi coarse-anchor
-    A4 + frequency (FreDF)    : + FFT low-freq(seasonal)
-    A5 + spatial (Ours)       : + cluster-anchor deviation (spatial)
+    A2 Best-of-N + physics    : baseline chon theo hydrostatic residual (top-1)
+    A3 + trend (multiscale)   : physics-filter top-K -> chon theo DTW(trend)
+    A4 + frequency (FreDF)    : physics-filter top-K -> + FFT low-freq(seasonal)
+    A5 + spatial (Ours)       : physics-filter top-K -> + cluster-anchor spatial
 
-PHYSICS (da verify, era5_hydrostatic_verifier.py):
+PHYSICS PRE-FILTER (da verify, era5_hydrostatic_verifier.py):
     r = (z500 - z1000) - R_dry * t850 * ln(2),  R_dry = 287 J/(kg*K)
     ghep CA 3 bien, score = mean(r^2). KHONG train gi (hang so vat ly).
+    Giu K_PHYSICS candidate co |r| nho nhat (keep top-K), bo cac candidate vi pham.
     Nguon: dang vi phan ∂φ/∂p=−RT/p (DeepPrim C.5); dang tich phan hypsometric
     la TEXTBOOK (Holton & Hakim 2013), KHONG phai DeepPrim.
 
@@ -63,7 +67,8 @@ KERNEL_FINE = 7
 
 N_CLUSTERS = 32
 K_NEIGHBORS = 8
-W_PHYS = W_TREND = W_FREQ = W_SPATIAL = 1.0       # trong so z-normed cong don
+K_PHYSICS = 10                                    # PHYSICS PRE-FILTER: giu top-K/N candidate thoa vat ly nhat
+W_TREND = W_FREQ = W_SPATIAL = 1.0                # trong so composite energy (KHONG co physics - physics la gate)
 
 GRID_STRIDE = 1                                   # tang (vd 2,4) de chay nhanh tren tap con o luoi
 BATCH_SIZE = 256                                  # so series/lan goi forecast (chia nho tranh OOM)
@@ -396,12 +401,17 @@ if __name__ == "__main__":
                     dev = float(np.mean(np.abs(pool[v][i][j] - bg_fore[v][c])))
                     e_spatial[j] += abs(dev - rd) / (rd + 1e-6)
 
-            zp, zt, zf, zs = zscore(e_phys), zscore(e_trend), zscore(e_freq), zscore(e_spatial)
+            zt, zf, zs = zscore(e_trend), zscore(e_freq), zscore(e_spatial)
+            # --- PHYSICS PRE-FILTER (dung hinh paper): giu top-K candidate thoa vat ly nhat ---
+            # (|residual| hydrostatic nho nhat). Physics KHONG nam trong composite energy.
+            keep = np.argsort(e_phys)[:min(K_PHYSICS, N_SAMPLES)]       # chi so candidate qua loc
+            def pick(energy):  # argmin composite energy TRONG so candidate da loc physics
+                return int(keep[int(np.argmin(energy[keep]))])
             sel_idx = {
-                "bon_physics": int(np.argmin(W_PHYS * zp)),
-                "trend": int(np.argmin(W_PHYS * zp + W_TREND * zt)),
-                "frequency": int(np.argmin(W_PHYS * zp + W_TREND * zt + W_FREQ * zf)),
-                "spatial": int(np.argmin(W_PHYS * zp + W_TREND * zt + W_FREQ * zf + W_SPATIAL * zs)),
+                "bon_physics": int(np.argmin(e_phys)),                   # baseline: chon theo physics (top-1)
+                "trend":     pick(W_TREND * zt),                        # physics-filter -> +trend
+                "frequency": pick(W_TREND * zt + W_FREQ * zf),          # physics-filter -> +trend+freq
+                "spatial":   pick(W_TREND * zt + W_FREQ * zf + W_SPATIAL * zs),  # Ours: +trend+freq+spatial
             }
 
             for v in VARS:
@@ -418,9 +428,10 @@ if __name__ == "__main__":
         json.dump({"config": {"model": MODEL_ID, "history": HISTORY_STEPS, "pred": PREDICTION_STEPS,
                               "n_samples": N_SAMPLES, "n_windows": int(len(starts)), "n_cells": int(n_cells),
                               "n_clusters": N_CLUSTERS, "k_neighbors": K_NEIGHBORS, "seed": SEED,
-                              "physics": "hydrostatic r=(z500-z1000)-R_dry*t850*ln2, R_dry=287",
+                              "physics": "hydrostatic PRE-FILTER keep top-K; r=(z500-z1000)-R_dry*t850*ln2, R_dry=287",
+                              "k_physics": K_PHYSICS,
                               "candidate": "Gaussian copula (arXiv:2510.02224)",
-                              "selection": "joint-1-index/cell, shared-u copula, z-normed cumulative",
+                              "selection": "physics pre-filter top-K -> composite energy (trend+freq+spatial), joint-1-index/cell",
                               "spatial": "cluster-anchor per-cell (grid spectral clustering)"},
                    "mse": table}, f, indent=2)
 
