@@ -75,7 +75,8 @@ BATCH_SIZE = 256                                  # so series/lan goi forecast (
 R_DRY = 287.0
 LN2 = float(np.log(2.0))
 MODEL_ID = "google/timesfm-3.0-pytorch"
-SEED = 0
+SEED = 0                                          # seed cho clustering (offline, co dinh)
+SEEDS = [0, 1, 2]                                 # seed cho SAMPLING copula (test-time). De [0] neu muon 1 seed nhanh.
 # Thu muc output: Kaggle (/kaggle/working), Colab (/content), hoac cwd.
 OUT_DIR = next((d for d in ("/kaggle/working", "/content") if os.path.isdir(d)), ".")
 OUT_JSON = os.path.join(OUT_DIR, "era5_arch_hydro_results.json")
@@ -330,11 +331,12 @@ if __name__ == "__main__":
         raise ValueError("Chuoi thoi gian qua ngan cho h512p64")
     starts = np.unique(np.linspace(0, last_start, N_WINDOWS).astype(int))
     pred_coarse = max(1, PREDICTION_STEPS // DOWNSAMPLE)
-    rng = np.random.default_rng(SEED)
 
     forecaster = load_timesfm3()
-    results = {v: {r: [] for r in ROWS} for v in VARS}
+    # results[seed][var][arch] -> cuoi cung lay mean/std qua SEEDS
+    results = {sd: {v: {r: [] for r in ROWS} for v in VARS} for sd in SEEDS}
     t0 = time.time()
+    print(f"SEEDS (sampling copula) = {SEEDS}; forecast TAT DINH -> chi lap sampling+scoring moi seed.")
 
     for wi, s in enumerate(starts):
         h0, h1, g1 = int(s), int(s) + HISTORY_STEPS, int(s) + HISTORY_STEPS + PREDICTION_STEPS
@@ -355,19 +357,7 @@ if __name__ == "__main__":
                     if n_q == 9 else np.linspace(0.1, 0.9, n_q))
         print(f"  w{wi+1}/{len(starts)} forecast xong ({time.time()-t0:.0f}s)")
 
-        # ---- sinh pool copula (shared u) + coarse pool / o luoi ----
-        pool = {v: np.empty((n_cells, N_SAMPLES, PREDICTION_STEPS), np.float32) for v in VARS}
-        coarse = {v: np.empty((n_cells, N_COARSE, pred_coarse), np.float32) for v in VARS}
-        for i in range(n_cells):
-            u = copula_u(N_SAMPLES - 1, PREDICTION_STEPS, rng, hist_series=hist_w[VARS[0]][i])
-            pf = copula_pool({v: qf[v][i] for v in VARS}, q_levels, u)
-            uc = copula_u(N_COARSE - 1, pred_coarse, rng,
-                          hist_series=hist_w[VARS[0]][i][::DOWNSAMPLE])
-            pc = copula_pool({v: qc[v][i] for v in VARS}, q_levels, uc)
-            for v in VARS:
-                pool[v][i] = pf[v]; coarse[v][i] = pc[v]
-
-        # ---- cluster-anchor cho E_spatial ----
+        # ---- cluster-anchor cho E_spatial (TAT DINH: greedy+history -> 1 lan/window, dung chung moi seed) ----
         bg_fore = {v: np.zeros((N_CLUSTERS, PREDICTION_STEPS)) for v in VARS}
         ref_dev = {v: np.zeros(n_cells) for v in VARS}
         for v in VARS:
@@ -378,68 +368,86 @@ if __name__ == "__main__":
                 bg_hist_c = np.median(hist_w[v][mem], axis=0)                 # (H,)
                 ref_dev[v][mem] = np.mean(np.abs(hist_w[v][mem] - bg_hist_c[None]), axis=1)
 
-        # ---- PASS 2: cham diem + chon cumulative / o luoi ----
-        for i in range(n_cells):
-            c = labels[i]
-            Cz5, Cz1, Ct8 = pool["z500"][i], pool["z1000"][i], pool["t850"][i]   # (N, pred)
+        # ---- LAP SEED: chi SAMPLING copula + cham diem (forecast + cluster-anchor da co san) ----
+        for sd in SEEDS:
+            rng = np.random.default_rng(sd)
+            pool = {v: np.empty((n_cells, N_SAMPLES, PREDICTION_STEPS), np.float32) for v in VARS}
+            coarse = {v: np.empty((n_cells, N_COARSE, pred_coarse), np.float32) for v in VARS}
+            for i in range(n_cells):
+                u = copula_u(N_SAMPLES - 1, PREDICTION_STEPS, rng, hist_series=hist_w[VARS[0]][i])
+                pf = copula_pool({v: qf[v][i] for v in VARS}, q_levels, u)
+                uc = copula_u(N_COARSE - 1, pred_coarse, rng,
+                              hist_series=hist_w[VARS[0]][i][::DOWNSAMPLE])
+                pc = copula_pool({v: qc[v][i] for v in VARS}, q_levels, uc)
+                for v in VARS:
+                    pool[v][i] = pf[v]; coarse[v][i] = pc[v]
 
-            e_phys = np.array([hydrostatic_score(Cz5[j], Cz1[j], Ct8[j]) for j in range(N_SAMPLES)])
+            # PASS 2: cham diem + chon / o luoi
+            for i in range(n_cells):
+                c = labels[i]
+                Cz5, Cz1, Ct8 = pool["z500"][i], pool["z1000"][i], pool["t850"][i]   # (N, pred)
+                e_phys = np.array([hydrostatic_score(Cz5[j], Cz1[j], Ct8[j]) for j in range(N_SAMPLES)])
 
-            e_trend = np.zeros(N_SAMPLES); e_freq = np.zeros(N_SAMPLES)
-            for v in VARS:
-                anch = [coarse[v][i][a] for a in range(N_COARSE)]
-                anch_ts = [moving_avg_decompose(a, max(2, KERNEL_FINE // DOWNSAMPLE)) for a in anch]
-                for j in range(N_SAMPLES):
-                    tj, sj = moving_avg_decompose(pool[v][i][j], KERNEL_FINE)
-                    e_trend[j] += min(dtw_distance(tj, ta) for ta, _ in anch_ts)
-                    e_freq[j] += min(fft_lowfreq_dist(sj, sa) for _, sa in anch_ts)
+                e_trend = np.zeros(N_SAMPLES); e_freq = np.zeros(N_SAMPLES)
+                for v in VARS:
+                    anch = [coarse[v][i][a] for a in range(N_COARSE)]
+                    anch_ts = [moving_avg_decompose(a, max(2, KERNEL_FINE // DOWNSAMPLE)) for a in anch]
+                    for j in range(N_SAMPLES):
+                        tj, sj = moving_avg_decompose(pool[v][i][j], KERNEL_FINE)
+                        e_trend[j] += min(dtw_distance(tj, ta) for ta, _ in anch_ts)
+                        e_freq[j] += min(fft_lowfreq_dist(sj, sa) for _, sa in anch_ts)
 
-            e_spatial = np.zeros(N_SAMPLES)
-            for v in VARS:
-                rd = ref_dev[v][i]
-                for j in range(N_SAMPLES):
-                    dev = float(np.mean(np.abs(pool[v][i][j] - bg_fore[v][c])))
-                    e_spatial[j] += abs(dev - rd) / (rd + 1e-6)
+                e_spatial = np.zeros(N_SAMPLES)
+                for v in VARS:
+                    rd = ref_dev[v][i]
+                    for j in range(N_SAMPLES):
+                        dev = float(np.mean(np.abs(pool[v][i][j] - bg_fore[v][c])))
+                        e_spatial[j] += abs(dev - rd) / (rd + 1e-6)
 
-            zt, zf, zs = zscore(e_trend), zscore(e_freq), zscore(e_spatial)
-            # --- PHYSICS PRE-FILTER (dung hinh paper): giu top-K candidate thoa vat ly nhat ---
-            # (|residual| hydrostatic nho nhat). Physics KHONG nam trong composite energy.
-            keep = np.argsort(e_phys)[:min(K_PHYSICS, N_SAMPLES)]       # chi so candidate qua loc
-            def pick(energy):  # argmin composite energy TRONG so candidate da loc physics
-                return int(keep[int(np.argmin(energy[keep]))])
-            sel_idx = {
-                "bon_physics": int(np.argmin(e_phys)),                   # baseline: chon theo physics (top-1)
-                "trend":     pick(W_TREND * zt),                        # physics-filter -> +trend
-                "frequency": pick(W_TREND * zt + W_FREQ * zf),          # physics-filter -> +trend+freq
-                "spatial":   pick(W_TREND * zt + W_FREQ * zf + W_SPATIAL * zs),  # Ours: +trend+freq+spatial
-            }
+                zt, zf, zs = zscore(e_trend), zscore(e_freq), zscore(e_spatial)
+                # --- PHYSICS PRE-FILTER (dung hinh paper): giu top-K candidate thoa vat ly nhat ---
+                keep = np.argsort(e_phys)[:min(K_PHYSICS, N_SAMPLES)]
+                def pick(energy, _keep=keep):  # argmin composite energy trong so candidate da loc physics
+                    return int(_keep[int(np.argmin(energy[_keep]))])
+                sel_idx = {
+                    "bon_physics": int(np.argmin(e_phys)),                   # baseline: physics top-1
+                    "trend":     pick(W_TREND * zt),                        # physics-filter -> +trend
+                    "frequency": pick(W_TREND * zt + W_FREQ * zf),          # +trend+freq
+                    "spatial":   pick(W_TREND * zt + W_FREQ * zf + W_SPATIAL * zs),  # Ours
+                }
 
-            for v in VARS:
-                g = gt[v][i]
-                results[v]["greedy"].append(float(np.mean((greedy[v][i] - g) ** 2)))
-                for row, j in sel_idx.items():
-                    results[v][row].append(float(np.mean((pool[v][i][j] - g) ** 2)))
+                for v in VARS:
+                    g = gt[v][i]
+                    results[sd][v]["greedy"].append(float(np.mean((greedy[v][i] - g) ** 2)))
+                    for row, j in sel_idx.items():
+                        results[sd][v][row].append(float(np.mean((pool[v][i][j] - g) ** 2)))
 
-        print(f"  w{wi+1}/{len(starts)} scored ({time.time()-t0:.0f}s)")
+            print(f"  w{wi+1}/{len(starts)} seed{sd} scored ({time.time()-t0:.0f}s)")
 
-    # ---- Tong hop + ghi bang ----
-    table = {v: {r: float(np.mean(results[v][r])) for r in ROWS} for v in VARS}
+    # ---- Tong hop qua 3 SEED: MSE moi seed -> mean +- std ----
+    # tbl[sd][v][r] = MSE trung binh toan bo cell/window cua seed do
+    tbl = {sd: {v: {r: float(np.mean(results[sd][v][r])) for r in ROWS} for v in VARS} for sd in SEEDS}
+    mean_t = {v: {r: float(np.mean([tbl[sd][v][r] for sd in SEEDS])) for r in ROWS} for v in VARS}
+    std_t = {v: {r: float(np.std([tbl[sd][v][r] for sd in SEEDS])) for r in ROWS} for v in VARS}
+
     with open(OUT_JSON, "w") as f:
         json.dump({"config": {"model": MODEL_ID, "history": HISTORY_STEPS, "pred": PREDICTION_STEPS,
                               "n_samples": N_SAMPLES, "n_windows": int(len(starts)), "n_cells": int(n_cells),
-                              "n_clusters": N_CLUSTERS, "k_neighbors": K_NEIGHBORS, "seed": SEED,
+                              "n_clusters": N_CLUSTERS, "k_neighbors": K_NEIGHBORS,
+                              "seeds": SEEDS, "cluster_seed": SEED,
                               "physics": "hydrostatic PRE-FILTER keep top-K; r=(z500-z1000)-R_dry*t850*ln2, R_dry=287",
                               "k_physics": K_PHYSICS,
                               "candidate": "Gaussian copula (arXiv:2510.02224)",
                               "selection": "physics pre-filter top-K -> composite energy (trend+freq+spatial), joint-1-index/cell",
                               "spatial": "cluster-anchor per-cell (grid spectral clustering)"},
-                   "mse": table}, f, indent=2)
+                   "mse_mean": mean_t, "mse_std": std_t, "mse_per_seed": tbl}, f, indent=2)
 
-    print("\n===== ARCH ABLATION (ERA5, TimesFM-3.0, hydrostatic) - MSE =====")
-    print(f"{'':24s} " + " ".join(f"{v:>10s}" for v in VARS))
+    print(f"\n===== ARCH ABLATION (ERA5, TimesFM-3.0, hydrostatic) - MSE mean+-std qua {len(SEEDS)} seed =====")
+    print(f"{'':24s} " + " ".join(f"{v:>22s}" for v in VARS))
     with open(OUT_CSV, "w") as f:
-        f.write("architecture," + ",".join(VARS) + "\n")
+        f.write("architecture," + ",".join(f"{v}_mean,{v}_std" for v in VARS) + "\n")
         for r in ROWS:
-            print(f"{ROW_LABEL[r]:24s} " + " ".join(f"{table[v][r]:10.3f}" for v in VARS))
-            f.write(ROW_LABEL[r] + "," + ",".join(f"{table[v][r]:.5f}" for v in VARS) + "\n")
+            print(f"{ROW_LABEL[r]:24s} " + " ".join(f"{mean_t[v][r]:12.3f}+-{std_t[v][r]:<8.3f}" for v in VARS))
+            f.write(ROW_LABEL[r] + "," + ",".join(f"{mean_t[v][r]:.5f},{std_t[v][r]:.5f}" for v in VARS) + "\n")
     print(f"\nTotal: {time.time()-t0:.0f}s | out: {OUT_JSON}")
+    print("Note: Greedy la point forecast TAT DINH -> std ~ 0 (dung ky vong).")
