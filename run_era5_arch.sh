@@ -15,6 +15,9 @@ source /home/user18/miniconda3/etc/profile.d/conda.sh
 conda activate stllm
 cd /home/user18/binhnkt
 
+# stream log realtime (khong buffer) de theo doi tien trinh
+export PYTHONUNBUFFERED=1
+
 # --- deps (idempotent, chi cai neu thieu) ---
 pip install -q git+https://github.com/google-research/timesfm.git
 pip install -q xarray netcdf4 scikit-learn scipy
@@ -28,4 +31,4 @@ if ! find . -name era5_test_2017_2018_hydro.nc | grep -q .; then
   exit 1
 fi
 
-python datasets/era5/reports/kaggle_kernel_era5_arch_hydro.py
+python -u datasets/era5/reports/kaggle_kernel_era5_arch_hydro.py
